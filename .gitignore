@@ -1,0 +1,33 @@
+# Byte-compiled / optimised files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+
+# Downloads & extracted SoftPaqs
+*.exe
+*.cab
+SDPCatalog.xml
+*.tmp
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# Test / coverage artefacts
+.coverage
+htmlcov/
+.pytest_cache/
