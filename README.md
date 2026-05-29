@@ -48,6 +48,9 @@ hp-bios download --product-id G3Z82UA
 # Download the top search result automatically
 hp-bios download --query "EliteBook 840 G7" --download-first --output-dir ./downloads
 
+# Detect the current HP system, fetch its BIOS package, and extract the BIOS files
+hp-bios download --this-pc --download-first --extract --output-dir ./downloads
+
 # Download and extract the SoftPaq
 hp-bios download --query "EliteBook 840 G7" --download-first --extract
 
@@ -77,6 +80,16 @@ hp-bios edit current.REPSET \
     --set "Virtualization Technology (VTx)=Enabled" \
     --output modified.REPSET
 ```
+
+To work from the machine you're on, first fetch the matching HP BIOS package for
+that PC:
+
+```bash
+hp-bios download --this-pc --download-first --extract --output-dir ./downloads
+```
+
+Then edit the exported REPSET, inspect the extracted BIOS binary, or run
+`hp-bios unlock` against the extracted firmware image.
 
 **REPSET format example:**
 

@@ -40,6 +40,7 @@ def _setup_logging(verbose: bool) -> None:
 def cmd_download(args: argparse.Namespace) -> int:
     """Handle the ``download`` subcommand."""
     from .downloader import BIOSDownloader, extract_softpaq, find_bios_binary
+    from .system_info import detect_local_system
 
     dl = BIOSDownloader(output_dir=args.output_dir, timeout=args.timeout)
 
@@ -54,12 +55,37 @@ def cmd_download(args: argparse.Namespace) -> int:
                 print(f"  BIOS binary: {b}")
         return 0
 
-    if args.product_id:
+    if args.this_pc:
+        if args.product_id or args.query or args.url:
+            print(
+                "ERROR: --this-pc cannot be combined with --query, --product-id, or --url.",
+                file=sys.stderr,
+            )
+            return 1
+        system = detect_local_system()
+        print(f"Detected system: {system}")
+        if not system.is_hp:
+            print("ERROR: Auto-detection only supports HP systems.", file=sys.stderr)
+            return 1
+
+        results = []
+        if system.product_id:
+            print(f"Searching BIOS catalog by product ID: {system.product_id}")
+            results = dl.search_by_product_id(system.product_id)
+        if not results and system.product_name:
+            if system.product_id:
+                print("No exact product-ID match found; falling back to model search.")
+            print(f"Searching BIOS catalog by model: {system.product_name}")
+            results = dl.search(system.product_name, limit=args.limit)
+        if not results:
+            print("No matching SoftPaqs found.")
+            return 0
+    elif args.product_id:
         results = dl.search_by_product_id(args.product_id)
     elif args.query:
         results = dl.search(args.query, limit=args.limit)
     else:
-        print("ERROR: Provide --query, --product-id, or --url.", file=sys.stderr)
+        print("ERROR: Provide --query, --product-id, --url, or --this-pc.", file=sys.stderr)
         return 1
 
     if not results:
@@ -238,6 +264,8 @@ def build_parser() -> argparse.ArgumentParser:
                       help="HP product ID (e.g. G3Z82UA).")
     dl_p.add_argument("-u", "--url", metavar="URL",
                       help="Direct SoftPaq download URL.")
+    dl_p.add_argument("--this-pc", action="store_true",
+                      help="Auto-detect this HP system and fetch its matching BIOS.")
     dl_p.add_argument("-o", "--output-dir", default=".", metavar="DIR",
                       help="Directory to save downloads (default: current dir).")
     dl_p.add_argument("--limit", type=int, default=10,

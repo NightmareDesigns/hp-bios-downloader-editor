@@ -6,6 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from hp_bios_tool.cli import build_parser, main
+from hp_bios_tool.downloader import SoftPaqEntry
+from hp_bios_tool.system_info import LocalSystemInfo
 
 
 # ---------------------------------------------------------------------------
@@ -214,3 +216,60 @@ class TestCmdDownload:
                        "https://ftp.hp.com/pub/softpaq/sp99999.exe",
                        "--output-dir", str(tmp_path)])
         assert rc == 0
+
+    def test_download_this_pc_uses_detected_product_id(self, capsys):
+        entry = SoftPaqEntry(
+            softpaq_id="sp12345",
+            name="HP BIOS",
+            version="1.2.3",
+            description="desc",
+            category="BIOS",
+            url="https://ftp.hp.com/pub/softpaq/sp12345.exe",
+            size_bytes=1024,
+        )
+        info = LocalSystemInfo(
+            vendor="HP",
+            product_name="HP EliteBook 840 G7",
+            product_id="G3Z82UA",
+            bios_version="01.02.03",
+            bios_vendor="HP",
+        )
+        with patch("hp_bios_tool.system_info.detect_local_system", return_value=info), \
+             patch("hp_bios_tool.downloader.BIOSDownloader.search_by_product_id", return_value=[entry]) as search_pid, \
+             patch("hp_bios_tool.downloader.BIOSDownloader.search") as search_model:
+            rc = main(["download", "--this-pc"])
+        assert rc == 0
+        search_pid.assert_called_once_with("G3Z82UA")
+        search_model.assert_not_called()
+        out = capsys.readouterr().out
+        assert "Detected system" in out
+
+    def test_download_this_pc_falls_back_to_model_search(self, capsys):
+        entry = SoftPaqEntry(
+            softpaq_id="sp12345",
+            name="HP BIOS",
+            version="1.2.3",
+            description="desc",
+            category="BIOS",
+            url="https://ftp.hp.com/pub/softpaq/sp12345.exe",
+            size_bytes=1024,
+        )
+        info = LocalSystemInfo(
+            vendor="HP",
+            product_name="HP EliteBook 840 G7",
+            product_id="G3Z82UA",
+            bios_version="01.02.03",
+            bios_vendor="HP",
+        )
+        with patch("hp_bios_tool.system_info.detect_local_system", return_value=info), \
+             patch("hp_bios_tool.downloader.BIOSDownloader.search_by_product_id", return_value=[]), \
+             patch("hp_bios_tool.downloader.BIOSDownloader.search", return_value=[entry]) as search_model:
+            rc = main(["download", "--this-pc"])
+        assert rc == 0
+        search_model.assert_called_once_with("HP EliteBook 840 G7", limit=10)
+        out = capsys.readouterr().out
+        assert "falling back to model search" in out
+
+    def test_download_this_pc_rejects_conflicting_args(self, capsys):
+        rc = main(["download", "--this-pc", "--query", "EliteBook"])
+        assert rc == 1
